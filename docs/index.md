@@ -20,7 +20,7 @@ A lightweight Windows desktop app to organize and launch your game library from 
 
 | Version | Download |
 |---------|----------|
-| Latest  | See [Releases](https://github.com/YOUR_USERNAME/GameVault/releases) |
+| Latest  | See [Releases](https://github.com/ioaa909/GameVault/releases) |
 
 ## Requirements
 
