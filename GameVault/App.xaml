@@ -1,0 +1,9 @@
+﻿<Application x:Class="GameVault.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <Style TargetType="ScrollViewer">
+            <Setter Property="Background" Value="#1A1A1A"/>
+        </Style>
+    </Application.Resources>
+</Application>
