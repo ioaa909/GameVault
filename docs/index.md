@@ -22,6 +22,18 @@ A lightweight Windows desktop app to organize and launch your game library from 
 |---------|----------|
 | Latest  | See [Releases](https://github.com/ioaa909/GameVault/releases) |
 
+### Install via Package Managers
+
+**winget** (after submission is accepted):
+```powershell
+winget install ioaa909.GameVault
+```
+
+**Chocolatey** (after submission is accepted):
+```powershell
+choco install gamevault
+```
+
 ## Requirements
 
 - Windows 10 or later

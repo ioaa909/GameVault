@@ -18,6 +18,18 @@ A lightweight Windows desktop app to organize and launch your game library from 
 3. Click **+ Add Games** and select your game `.exe` files
 4. Click a game tile to launch it
 
+### Install via Package Managers
+
+**winget** (after submission accepted):
+```powershell
+winget install ioaa909.GameVault
+```
+
+**Chocolatey** (after submission accepted):
+```powershell
+choco install gamevault
+```
+
 ## Requirements
 
 - Windows 10+

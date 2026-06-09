@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>gamevault</id>
+    <version>1.0.0</version>
+    <title>GameVault</title>
+    <authors>ioaa909</authors>
+    <owners>ioaa909</owners>
+    <projectUrl>https://github.com/ioaa909/GameVault</projectUrl>
+    <licenseUrl>https://github.com/ioaa909/GameVault/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Lightweight Windows desktop app to organize and launch your game library from one place.</description>
+    <tags>games launcher library tray wpf</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,0 +1,15 @@
+PackageIdentifier: ioaa909.GameVault
+PackageVersion: 1.0.0
+PackageLocale: en-US
+Publisher: ioaa909
+PackageName: GameVault
+License: MIT
+ShortDescription: Lightweight Windows desktop app to organize and launch your game library from one place.
+Tags:
+  - games
+  - launcher
+  - library
+  - tray
+  - wpf
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0
