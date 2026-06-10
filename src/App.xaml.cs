@@ -152,6 +152,7 @@ public partial class App : System.Windows.Application
                       $"if exist \"{exePath}\" del /f /q \"{exePath}\"\r\n" +
                       $"if exist \"{exePath}\" goto loop\r\n" +
                       $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
+                      $"if exist \"{appData}\" rmdir /s /q \"{appData}\" 2>nul\r\n" +
                       $"del /f /q \"{batPath}\"";
 
             System.IO.File.WriteAllText(batPath, bat);
