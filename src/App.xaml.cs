@@ -23,6 +23,9 @@ public partial class App : System.Windows.Application
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+    private static extern int GetShortPathName(string lpszLongPath, char[] lpszShortPath, int cchBuffer);
+
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     private const int SW_RESTORE = 9;
@@ -118,36 +121,48 @@ public partial class App : System.Windows.Application
         var appData = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameVault");
 
-        var exePath = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(exePath))
-            Environment.Exit(0);
-
-        var exeDir = System.IO.Path.GetDirectoryName(exePath);
-        var batPath = System.IO.Path.Combine(
-            System.IO.Path.GetTempPath(), "GameVault_cleanup.bat");
-
-        var bat = $"@echo off\r\n" +
-                  $":loop\r\n" +
-                  $"taskkill /f /im \"{System.IO.Path.GetFileName(exePath)}\" >nul 2>&1\r\n" +
-                  $"ping -n 3 127.0.0.1 >nul\r\n" +
-                  $"del /f /q \"{exePath}\" >nul 2>&1\r\n" +
-                  $"if exist \"{exePath}\" goto loop\r\n" +
-                  $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v GameVault /f >nul 2>&1\r\n" +
-                  $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GameVault\" /f >nul 2>&1\r\n" +
-                  $"if exist \"{appData}\" rmdir /s /q \"{appData}\" 2>nul\r\n" +
-                  $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
-                  $"del /f /q \"{batPath}\"";
-
-        System.IO.File.WriteAllText(batPath, bat,
-            System.Text.Encoding.GetEncoding(
-                System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage));
-        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batPath}\"")
+        if (System.IO.Directory.Exists(appData))
         {
-            WindowStyle = ProcessWindowStyle.Hidden,
-            CreateNoWindow = true
-        });
+            try { System.IO.Directory.Delete(appData, true); }
+            catch { }
+        }
+
+        using (var runKey = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Run", true))
+        {
+            try { runKey?.DeleteValue("GameVault"); }
+            catch { }
+        }
+
+        using (var uninstallKey = Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Uninstall", true))
+        {
+            try { uninstallKey?.DeleteSubKey("GameVault"); }
+            catch { }
+        }
+
+        var exePath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(exePath))
+        {
+            var shortExe = ShortPath(exePath);
+            var shortDir = ShortPath(System.IO.Path.GetDirectoryName(exePath) ?? "");
+            var cmd = $"/c timeout /t 2 /nobreak >nul & del /f /q \"{shortExe}\" & rmdir /s /q \"{shortDir}\"";
+
+            Process.Start(new ProcessStartInfo("cmd.exe", cmd)
+            {
+                WindowStyle = ProcessWindowStyle.Hidden,
+                CreateNoWindow = true
+            });
+        }
 
         Environment.Exit(0);
+    }
+
+    private static string ShortPath(string path)
+    {
+        var buffer = new char[260];
+        var len = GetShortPathName(path, buffer, buffer.Length);
+        return len > 0 && len < buffer.Length ? new string(buffer, 0, len) : path;
     }
 
     private static void RegisterStartup()
