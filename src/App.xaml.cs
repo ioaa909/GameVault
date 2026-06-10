@@ -118,50 +118,32 @@ public partial class App : System.Windows.Application
         var appData = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameVault");
 
-        if (System.IO.Directory.Exists(appData))
-        {
-            try { System.IO.Directory.Delete(appData, true); }
-            catch { }
-        }
-
-        using (var runKey = Registry.CurrentUser.OpenSubKey(
-            @"Software\Microsoft\Windows\CurrentVersion\Run", true))
-        {
-            try { runKey?.DeleteValue("GameVault"); }
-            catch { }
-        }
-
-        using (var uninstallKey = Registry.CurrentUser.OpenSubKey(
-            @"Software\Microsoft\Windows\CurrentVersion\Uninstall", true))
-        {
-            try { uninstallKey?.DeleteSubKey("GameVault"); }
-            catch { }
-        }
-
         var exePath = Environment.ProcessPath;
-        if (!string.IsNullOrEmpty(exePath))
+        if (string.IsNullOrEmpty(exePath))
+            Environment.Exit(0);
+
+        var exeDir = System.IO.Path.GetDirectoryName(exePath);
+        var batPath = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(), "GameVault_cleanup.bat");
+
+        var bat = $"@echo off\r\n" +
+                  $":loop\r\n" +
+                  $"taskkill /f /im \"{System.IO.Path.GetFileName(exePath)}\" >nul 2>&1\r\n" +
+                  $"ping -n 3 127.0.0.1 >nul\r\n" +
+                  $"if exist \"{exePath}\" del /f /q \"{exePath}\"\r\n" +
+                  $"if exist \"{exePath}\" goto loop\r\n" +
+                  $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v GameVault /f >nul 2>&1\r\n" +
+                  $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GameVault\" /f >nul 2>&1\r\n" +
+                  $"if exist \"{appData}\" rmdir /s /q \"{appData}\" 2>nul\r\n" +
+                  $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
+                  $"del /f /q \"{batPath}\"";
+
+        System.IO.File.WriteAllText(batPath, bat);
+        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batPath}\"")
         {
-            var exeDir = System.IO.Path.GetDirectoryName(exePath);
-            var batPath = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(), "GameVault_cleanup.bat");
-
-            var bat = $"@echo off\r\n" +
-                      $":loop\r\n" +
-                      $"taskkill /f /im \"{System.IO.Path.GetFileName(exePath)}\" >nul 2>&1\r\n" +
-                      $"ping -n 3 127.0.0.1 >nul\r\n" +
-                      $"if exist \"{exePath}\" del /f /q \"{exePath}\"\r\n" +
-                      $"if exist \"{exePath}\" goto loop\r\n" +
-                      $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
-                      $"if exist \"{appData}\" rmdir /s /q \"{appData}\" 2>nul\r\n" +
-                      $"del /f /q \"{batPath}\"";
-
-            System.IO.File.WriteAllText(batPath, bat);
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batPath}\"")
-            {
-                WindowStyle = ProcessWindowStyle.Hidden,
-                CreateNoWindow = true
-            });
-        }
+            WindowStyle = ProcessWindowStyle.Hidden,
+            CreateNoWindow = true
+        });
 
         Environment.Exit(0);
     }
