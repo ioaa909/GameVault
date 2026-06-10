@@ -17,7 +17,7 @@ A lightweight Windows desktop app to organize and launch your game library from 
 
 **PowerShell (one-liner):**
 ```powershell
-irm https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip -o g.zip; Expand-Archive g.zip -De . -Fo; ri g.zip; .\GameVault.exe
+iwr https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip -OutFile g.zip; Expand-Archive g.zip -De . -Fo; ri g.zip; .\GameVault.exe
 ```
 
 **Browser:** Download [GameVault-v1.0.1.zip](https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip), extract, and run `GameVault.exe`.
