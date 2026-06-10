@@ -24,15 +24,3 @@ Or download the zip manually from [Releases](https://github.com/ioaa909/GameVaul
 1. Run the command above or download the latest release
 2. Click **+ Add Games** and select your game `.exe` files
 3. Click a game tile to launch it
-
-### Install via Package Managers
-
-**winget** (after submission accepted):
-```powershell
-winget install ioaa909.GameVault
-```
-
-**Chocolatey** (after submission accepted):
-```powershell
-choco install gamevault
-```
