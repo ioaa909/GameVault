@@ -1,6 +1,6 @@
 # GameVault
 
-A lightweight Windows desktop app to organize and launch your game library from one place. Built with C# WPF.
+A lightweight Windows desktop app to organize and launch your game library from one place. Built with C++ Win32.
 
 ## Features
 
@@ -17,12 +17,10 @@ A lightweight Windows desktop app to organize and launch your game library from 
 
 **PowerShell (one-liner):**
 ```powershell
-iwr https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip -OutFile g.zip; Expand-Archive g.zip -De . -Fo; ri g.zip; .\GameVault.exe
+iwr https://github.com/ioaa909/GameVault/releases/download/v1.0.0/GameVault.exe -OutFile GameVault.exe; .\GameVault.exe
 ```
 
-**Browser:** Download [GameVault-v1.0.1.zip](https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip), extract, and run `GameVault.exe`.
-
-No .NET runtime required — the exe is self-contained.
+No .NET or runtime required — the exe is self-contained.
 
 ## Quick Start
 
