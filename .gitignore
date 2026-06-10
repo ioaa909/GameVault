@@ -1,3 +1,2 @@
-bin/
-obj/
-*.zip
+*.o
+*.exe
