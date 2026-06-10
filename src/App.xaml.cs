@@ -135,7 +135,6 @@ public partial class App : System.Windows.Application
         var exePath = Environment.ProcessPath;
         if (!string.IsNullOrEmpty(exePath))
         {
-            var exeDir = System.IO.Path.GetDirectoryName(exePath);
             var batPath = System.IO.Path.Combine(
                 System.IO.Path.GetTempPath(), "GameVault_cleanup.bat");
 
@@ -147,7 +146,6 @@ public partial class App : System.Windows.Application
                       $"del /f /q \"{exePath}\" >nul 2>&1\r\n" +
                       $"if exist \"{exePath}\" goto loop\r\n" +
                       $"rd /s /q \"{appData}\" >nul 2>&1\r\n" +
-                      $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
                       $"del /f /q \"{batPath}\"";
 
             System.IO.File.WriteAllText(batPath, bat);
