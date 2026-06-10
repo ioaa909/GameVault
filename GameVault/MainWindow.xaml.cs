@@ -41,8 +41,23 @@ public partial class MainWindow : Window
     {
         try
         {
-            var icoPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GameVault.ico");
-            var pngPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GameVault.png");
+            var cacheDir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "GameVault", "cache");
+            System.IO.Directory.CreateDirectory(cacheDir);
+
+            var pngPath = System.IO.Path.Combine(cacheDir, "GameVault.png");
+            var icoPath = System.IO.Path.Combine(cacheDir, "GameVault.ico");
+
+            using (var resource = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("GameVault.GameVault.png"))
+            {
+                if (resource != null)
+                {
+                    using var file = System.IO.File.Create(pngPath);
+                    resource.CopyTo(file);
+                }
+            }
 
             var pngInfo = new System.IO.FileInfo(pngPath);
             var icoInfo = new System.IO.FileInfo(icoPath);
@@ -230,6 +245,15 @@ public partial class MainWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left)
             DragMove();
+    }
+
+    private void MinimizeBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_trayIcon != null)
+            _trayIcon.Visible = true;
+
+        WindowState = WindowState.Minimized;
+        Hide();
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
