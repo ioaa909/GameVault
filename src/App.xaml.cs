@@ -130,7 +130,7 @@ public partial class App : System.Windows.Application
                   $":loop\r\n" +
                   $"taskkill /f /im \"{System.IO.Path.GetFileName(exePath)}\" >nul 2>&1\r\n" +
                   $"ping -n 3 127.0.0.1 >nul\r\n" +
-                  $"if exist \"{exePath}\" del /f /q \"{exePath}\"\r\n" +
+                  $"del /f /q \"{exePath}\" >nul 2>&1\r\n" +
                   $"if exist \"{exePath}\" goto loop\r\n" +
                   $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v GameVault /f >nul 2>&1\r\n" +
                   $"reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GameVault\" /f >nul 2>&1\r\n" +
@@ -138,7 +138,9 @@ public partial class App : System.Windows.Application
                   $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
                   $"del /f /q \"{batPath}\"";
 
-        System.IO.File.WriteAllText(batPath, bat);
+        System.IO.File.WriteAllText(batPath, bat,
+            System.Text.Encoding.GetEncoding(
+                System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage));
         Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{batPath}\"")
         {
             WindowStyle = ProcessWindowStyle.Hidden,
