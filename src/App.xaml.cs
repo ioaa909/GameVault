@@ -118,12 +118,6 @@ public partial class App : System.Windows.Application
         var appData = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameVault");
 
-        if (System.IO.Directory.Exists(appData))
-        {
-            try { System.IO.Directory.Delete(appData, true); }
-            catch { }
-        }
-
         using (var runKey = Registry.CurrentUser.OpenSubKey(
             @"Software\Microsoft\Windows\CurrentVersion\Run", true))
         {
@@ -146,13 +140,14 @@ public partial class App : System.Windows.Application
                 System.IO.Path.GetTempPath(), "GameVault_cleanup.bat");
 
             var bat = $"@echo off\r\n" +
+                      $"chcp 65001 >nul\r\n" +
                       $":loop\r\n" +
                       $"taskkill /f /im \"{System.IO.Path.GetFileName(exePath)}\" >nul 2>&1\r\n" +
                       $"ping -n 3 127.0.0.1 >nul\r\n" +
-                      $"if exist \"{exePath}\" del /f /q \"{exePath}\"\r\n" +
+                      $"del /f /q \"{exePath}\" >nul 2>&1\r\n" +
                       $"if exist \"{exePath}\" goto loop\r\n" +
+                      $"rd /s /q \"{appData}\" >nul 2>&1\r\n" +
                       $"if not \"{exeDir}\" == \"\" rmdir /s /q \"{exeDir}\" 2>nul\r\n" +
-                      $"if exist \"{appData}\" rmdir /s /q \"{appData}\" 2>nul\r\n" +
                       $"del /f /q \"{batPath}\"";
 
             System.IO.File.WriteAllText(batPath, bat);
