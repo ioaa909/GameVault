@@ -11,12 +11,19 @@ A lightweight Windows desktop app to organize and launch your game library from 
 - **Single Instance** – Second launch brings existing window to front
 - **Custom Dark Theme** – Black background with purple accents
 
+## Download & Run
+
+```powershell
+iwr https://github.com/ioaa909/GameVault/releases/download/v1.0.0/GameVault-v1.0.0.zip -OutFile GameVault.zip; Expand-Archive GameVault.zip -DestinationPath GameVault -Force; .\GameVault\GameVault.exe
+```
+
+Or download the zip manually from [Releases](https://github.com/ioaa909/GameVault/releases), extract, and run `GameVault.exe`. No .NET runtime required.
+
 ## Quick Start
 
-1. Download the latest [release](https://github.com/ioaa909/GameVault/releases)
-2. Run `GameVault.exe`
-3. Click **+ Add Games** and select your game `.exe` files
-4. Click a game tile to launch it
+1. Run the command above or download the latest release
+2. Click **+ Add Games** and select your game `.exe` files
+3. Click a game tile to launch it
 
 ### Install via Package Managers
 
@@ -28,15 +35,4 @@ winget install ioaa909.GameVault
 **Chocolatey** (after submission accepted):
 ```powershell
 choco install gamevault
-```
-
-## Requirements
-
-- Windows 10+
-- [.NET 10.0 Runtime](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
-
-## Build
-
-```
-dotnet build GameVault\GameVault.csproj
 ```
