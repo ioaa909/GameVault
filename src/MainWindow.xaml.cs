@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 
@@ -35,6 +36,17 @@ public partial class MainWindow : Window
 
         if (App.StartSilent && _trayIcon != null)
             _trayIcon.Visible = true;
+
+        new Thread(() =>
+        {
+            try
+            {
+                while (App.ShowSignal.WaitOne())
+                    Dispatcher.Invoke(() => ShowWindow_Click(null, EventArgs.Empty));
+            }
+            catch { }
+        })
+        { IsBackground = true }.Start();
     }
 
     private void SetWindowIcon()
