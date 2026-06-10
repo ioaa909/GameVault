@@ -14,13 +14,16 @@ A lightweight Windows desktop app to organize and launch your game library from 
 - **Custom Theme** – Dark background (#1A1A1A) with purple accents (#7B2D8E / #9B59B6)
 - **Auto Icon Extraction** – Game icons are extracted directly from each executable
 
-## Download & Run
+## Download
 
+**PowerShell (one-liner):**
 ```powershell
-iwr https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip -OutFile GameVault.zip; Expand-Archive GameVault.zip -DestinationPath GameVault -Force; .\GameVault\GameVault.exe
+irm https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip -OutFile GameVault.zip; Expand-Archive GameVault.zip -DestinationPath GameVault -Force; .\GameVault\GameVault.exe
 ```
 
-Or download the zip manually from [Releases](https://github.com/ioaa909/GameVault/releases), extract, and run `GameVault.exe`. No .NET runtime required.
+**Browser:** Download [GameVault-v1.0.1.zip](https://github.com/ioaa909/GameVault/releases/download/v1.0.1/GameVault-v1.0.1.zip), extract, and run `GameVault.exe`.
+
+No .NET runtime required — the exe is self-contained.
 
 ## Quick Start
 
