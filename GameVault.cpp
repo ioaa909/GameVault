@@ -285,6 +285,9 @@ void RunUninst() {
         L"Are you sure you want to uninstall GameVault?\n\nThis will:\n\u2022 Remove your saved game library\n\u2022 Remove the autostart entry\n\u2022 Delete GameVault.exe",
         L"Uninstall GameVault",MB_YESNO|MB_ICONQUESTION)!=IDYES) ExitProcess(0);
     wchar_t exe[MAX_PATH]; GetModuleFileName(nullptr,exe,MAX_PATH);
+    std::wstring sad=AppDataP();
+    wchar_t t[MAX_PATH]; std::wstring stmp; if(GetTempPath(MAX_PATH,t)) stmp=t;
+    std::wstring bp=stmp+L"GameVault_cleanup.bat";
     HKEY rk;
     if(RegOpenKeyEx(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&rk)==ERROR_SUCCESS) {
         RegDeleteValue(rk,L"GameVault"); RegCloseKey(rk);
@@ -292,16 +295,18 @@ void RunUninst() {
     if(RegOpenKeyEx(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall",0,KEY_WRITE,&rk)==ERROR_SUCCESS) {
         SHDeleteKey(rk,L"GameVault"); RegCloseKey(rk);
     }
-    std::wstring ad=AppDataP(), tmp;
-    wchar_t t[MAX_PATH]; if(GetTempPath(MAX_PATH,t)) tmp=t;
-    std::wstring bp=tmp+L"GameVault_cleanup.bat";
     wchar_t fn[MAX_PATH]; wcscpy_s(fn,exe); wchar_t* sep=wcsrchr(fn,L'\\');
     std::wstring fname=sep?sep+1:fn;
-    std::wstring bat=L"@echo off\r\nchcp 65001 >nul\r\n:loop\r\ntaskkill /f /im \""+fname+L"\" >nul 2>&1\r\n";
+    std::wstring bat=L"@echo off\r\n:loop\r\ntaskkill /f /im \""+fname+L"\" >nul 2>&1\r\n";
     bat+=L"ping -n 3 127.0.0.1 >nul\r\ndel /f /q \""+std::wstring(exe)+L"\" >nul 2>&1\r\nif exist \""+std::wstring(exe)+L"\" goto loop\r\n";
-    bat+=L"rd /s /q \""+ad+L"\" >nul 2>&1\r\ndel /f /q \""+bp+L"\"";
-    std::ofstream f(bp.c_str()); if(f.is_open()){std::string u=W2U(bat);f.write(u.data(),u.size());f.close();}
-    ShellExecute(nullptr,L"open",L"cmd.exe",(L"/c \""+bp+L"\"").c_str(),nullptr,SW_HIDE);
+    bat+=L"rd /s /q \""+sad+L"\" >nul 2>&1\r\ndel /f /q \""+bp+L"\"";
+    HANDLE hf=CreateFileW(bp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(hf!=INVALID_HANDLE_VALUE) {
+        std::string u=W2U(bat); DWORD written;
+        WriteFile(hf,u.data(),(DWORD)u.size(),&written,nullptr);
+        CloseHandle(hf);
+    }
+    ShellExecuteW(nullptr,L"open",L"cmd.exe",(L"/c \""+bp+L"\"").c_str(),nullptr,SW_HIDE);
     ExitProcess(0);
 }
 
