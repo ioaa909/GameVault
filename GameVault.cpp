@@ -726,8 +726,23 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         HDROP hDrop=(HDROP)wParam; wchar_t f[MAX_PATH];
         UINT n=DragQueryFile(hDrop,0xFFFFFFFF,nullptr,0); bool added=false;
         for(UINT i=0;i<n;i++){DragQueryFile(hDrop,i,f,MAX_PATH);
-            bool dup=false; for(auto& g:g_games) if(_wcsicmp(g.filePath.c_str(),f)==0){dup=true;break;}
-            if(!dup){GameEntry e;e.filePath=f;e.name=GetGN(f);e.icon=GetIcon(f);g_games.push_back(e);added=true;}
+            std::wstring target=f;
+            size_t len=wcslen(f);
+            if(len>4&&_wcsicmp(f+len-4,L".lnk")==0){
+                IShellLink* sl=nullptr;
+                if(SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_IShellLink,(void**)&sl))){
+                    IPersistFile* pf=nullptr;
+                    if(SUCCEEDED(sl->QueryInterface(IID_IPersistFile,(void**)&pf))){
+                        if(SUCCEEDED(pf->Load(f,STGM_READ))){
+                            wchar_t t[MAX_PATH]; WIN32_FIND_DATA wfd;
+                            if(sl->GetPath(t,MAX_PATH,&wfd,SLGP_RAWPATH)==S_OK) target=t;
+                        } pf->Release();
+                    } sl->Release();
+                }
+            }
+            if(target.size()<=4||_wcsicmp(target.c_str()+target.size()-4,L".exe")!=0) continue;
+            bool dup=false; for(auto& g:g_games) if(_wcsicmp(g.filePath.c_str(),target.c_str())==0){dup=true;break;}
+            if(!dup){GameEntry e;e.filePath=target;e.name=GetGN(target);e.icon=GetIcon(target);g_games.push_back(e);added=true;}
         } DragFinish(hDrop);
         if(added){Save();RebuildTiles();}
         return 0;
