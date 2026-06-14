@@ -28,7 +28,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #define IDI_MAIN 101
 #define APP_NAME L"GameVault"
-#define APP_VER L"1.0.1"
+#define APP_VER L"1.1.0"
 #define PUBLISHER L"ioaa909"
 #define WM_TRAYICON (WM_APP + 1)
 #define WM_SHOWSIGNAL (WM_APP + 2)
