@@ -13,6 +13,10 @@ HFONT g_hFont, g_hFontSm, g_hFontB;
 bool g_silent = false;
 int g_hovTile = -1, g_closeHov = 0, g_minHov = 0;
 HMENU g_hTrayM;
+HWND g_hSearch;
+std::wstring g_search;
+std::vector<size_t> g_filtered;
+HBRUSH g_brSearchBg;
 
 void InitTheme() {
     g_brBg = CreateSolidBrush(RGB(0x1A,0x1A,0x1A));
@@ -22,6 +26,7 @@ void InitTheme() {
     g_brBtnH = CreateSolidBrush(RGB(0x9B,0x59,0xB6));
     g_brRed = CreateSolidBrush(RGB(0xC0,0x39,0x2B));
     g_brTb = CreateSolidBrush(RGB(0x0D,0x0D,0x0D));
+    g_brSearchBg = CreateSolidBrush(RGB(0x1E,0x1E,0x1E));
     NONCLIENTMETRICS nm = {sizeof(nm)};
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(nm),&nm,0);
     g_hFont = CreateFontIndirect(&nm.lfMessageFont);
@@ -110,7 +115,7 @@ void Load() {
 void RebuildTiles() {
     RECT rc; GetClientRect(g_hwndGame,&rc);
     int visH=rc.bottom-rc.top, cols=std::max<int>(1,rc.right/(TILE_W+TILE_M*2));
-    int rows=(int)((g_games.size()+cols-1)/cols);
+    int rows=(int)((TileCount()+cols-1)/cols);
     g_contentH=20+rows*(TILE_H+TILE_M*2);
     bool needScroll=g_contentH>visH;
     g_contentH=std::max(g_contentH,visH);
@@ -490,6 +495,19 @@ void Center(HWND h) {
     SetWindowPos(h,nullptr,(GetSystemMetrics(SM_CXSCREEN)-w)/2,(GetSystemMetrics(SM_CYSCREEN)-hgt)/2,w,hgt,SWP_NOZORDER|SWP_NOSIZE);
 }
 
+size_t TileCount() { return g_search.empty()?g_games.size():g_filtered.size(); }
+size_t TileGame(size_t i) { return g_search.empty()?i:g_filtered[i]; }
+
+void RebuildFiltered() {
+    g_filtered.clear();
+    if(!g_search.empty()) {
+        for(size_t i=0;i<g_games.size();i++) {
+            if(StrStrI(g_games[i].name.c_str(),g_search.c_str())) g_filtered.push_back(i);
+        }
+    }
+    RebuildTiles();
+}
+
 void TraySetup() {
     g_nid.cbSize=sizeof(NOTIFYICONDATA);
     g_nid.hWnd=g_hWnd; g_nid.uID=1;
@@ -574,13 +592,13 @@ int TileAt(int x, int y, int& cols, int& rows) {
     RECT rc; GetClientRect(g_hwndGame,&rc);
     int w=rc.right-rc.left;
     cols=std::max(1,w/(TILE_W+TILE_M*2));
-    rows=(int)((g_games.size()+cols-1)/cols);
+    rows=(int)((TileCount()+cols-1)/cols);
     if(x<20||y<20) return -1;
     int c=(x-20)/(TILE_W+TILE_M*2);
     int r=(y-20+g_scrollY)/(TILE_H+TILE_M*2);
     if(c<cols&&r<rows) {
         int idx=r*cols+c;
-        if(idx<(int)g_games.size()) return idx;
+        if(idx<(int)TileCount()) return (int)TileGame(idx);
     }
     return -1;
 }
@@ -590,7 +608,7 @@ void PaintTiles(HWND hwnd, HDC hdc, int w, int h) {
     RECT rc; GetClientRect(hwnd,&rc);
     w=rc.right; h=rc.bottom;
     cols=std::max(1,w/(TILE_W+TILE_M*2));
-    rows=(int)((g_games.size()+cols-1)/cols);
+    rows=(int)((TileCount()+cols-1)/cols);
     int total=20+rows*(TILE_H+TILE_M*2);
     if(total<rc.bottom) total=rc.bottom;
     HBRUSH brB = CreateSolidBrush(RGB(0x1A,0x1A,0x1A));
@@ -599,20 +617,22 @@ void PaintTiles(HWND hwnd, HDC hdc, int w, int h) {
     HBRUSH brH=CreateSolidBrush(RGB(0x3A,0x3A,0x3A));
     HPEN hp=CreatePen(PS_SOLID,2,RGB(0x9B,0x59,0xB6));
     SetBkMode(hdc,TRANSPARENT);
-    for(size_t i=0;i<g_games.size();i++) {
+    size_t cnt=TileCount();
+    for(size_t i=0;i<cnt;i++) {
+        size_t gi=TileGame(i);
         int r=(int)i/cols, c=(int)i%cols;
         int x=20+c*(TILE_W+TILE_M*2), y=20+r*(TILE_H+TILE_M*2)-g_scrollY;
         if(y+TILE_H<0||y>h) continue;
-        SelectObject(hdc,(int)i==g_hovTile?brH:brT);
+        SelectObject(hdc,(int)gi==g_hovTile?brH:brT);
         SelectObject(hdc,hp);
         RoundRect(hdc,x,y,x+TILE_W,y+TILE_H,8,8);
-        if(g_games[i].icon) {
-            DrawIconEx(hdc,x+(TILE_W-64)/2,y+6,g_games[i].icon,64,64,0,nullptr,DI_NORMAL);
+        if(g_games[gi].icon) {
+            DrawIconEx(hdc,x+(TILE_W-64)/2,y+6,g_games[gi].icon,64,64,0,nullptr,DI_NORMAL);
         }
         SetTextColor(hdc,RGB(0xE0,0xE0,0xE0));
         SelectObject(hdc,g_hFontSm);
         RECT tr2={x+4,y+72,x+TILE_W-4,y+TILE_H-6};
-        DrawText(hdc,g_games[i].name.c_str(),-1,&tr2,DT_CENTER|DT_WORDBREAK|DT_END_ELLIPSIS|DT_NOPREFIX);
+        DrawText(hdc,g_games[gi].name.c_str(),-1,&tr2,DT_CENTER|DT_WORDBREAK|DT_END_ELLIPSIS|DT_NOPREFIX);
     }
     DeleteObject(hp); DeleteObject(brT); DeleteObject(brH);
 }
@@ -654,7 +674,7 @@ LRESULT CALLBACK GameAreaProc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         return 0;
     }
     case WM_MOUSEMOVE: {
-        if(!g_games.size()) return 0;
+        if(!TileCount()) return 0;
         int x=LOWORD(lParam), y=HIWORD(lParam), cols=0, rows=0;
         int idx=TileAt(x,y,cols,rows);
         if(idx!=g_hovTile){g_hovTile=idx;InvalidateRect(hwnd,nullptr,TRUE);}
@@ -703,6 +723,9 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         g_hBtnAdd=CreateWindow(L"BUTTON",L"+ Add Games",
             WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
             (900-200)/2,rc.bottom-BB_H+12,200,36,hWnd,(HMENU)1,g_hInst,nullptr);
+        g_hSearch=CreateWindowEx(0,L"EDIT",L"",
+            WS_CHILD|WS_VISIBLE|ES_LEFT|ES_AUTOHSCROLL,
+            12,rc.bottom-BB_H+14,180,28,hWnd,(HMENU)5,g_hInst,nullptr);
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
         RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
@@ -826,11 +849,17 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     case WM_SIZE: {
         int w=LOWORD(lParam),h=HIWORD(lParam);
         if(g_hwndGame) SetWindowPos(g_hwndGame,nullptr,0,TB_H,w,h-TB_H-BB_H,SWP_NOZORDER);
+        if(g_hSearch) SetWindowPos(g_hSearch,nullptr,12,h-BB_H+14,180,28,SWP_NOZORDER);
         if(g_hBtnAdd) SetWindowPos(g_hBtnAdd,nullptr,(w-200)/2,h-BB_H+12,200,36,SWP_NOZORDER);
         return 0;
     }
     case WM_COMMAND: {
         int id=LOWORD(wParam), hi=HIWORD(wParam);
+        if(hi==EN_CHANGE&&id==5) {
+            wchar_t buf[256]; GetWindowText(g_hSearch,buf,256);
+            g_search=buf; RebuildFiltered();
+            return 0;
+        }
         if(hi==BN_CLICKED||hi==0) {
             if(id==1) {
                 bool any=false; for(auto& r:g_running){DWORD e;if(GetExitCodeProcess(r.process,&e)&&e==STILL_ACTIVE){any=true;break;}}
@@ -864,6 +893,12 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         SetTextColor(hdc,RGB(0xE0,0xE0,0xE0));
         SetBkMode(hdc,TRANSPARENT);
         return (LRESULT)GetStockObject(NULL_BRUSH);
+    }
+    case WM_CTLCOLOREDIT: {
+        HDC hdc=(HDC)wParam;
+        SetTextColor(hdc,RGB(0xE0,0xE0,0xE0));
+        SetBkColor(hdc,RGB(0x1E,0x1E,0x1E));
+        return (LRESULT)g_brSearchBg;
     }
     case WM_GETMINMAXINFO:{MINMAXINFO*m=(MINMAXINFO*)lParam;m->ptMinTrackSize.x=400;m->ptMinTrackSize.y=300;return 0;}
     case WM_DESTROY: KillAll(); UnregisterHotKey(hWnd,1); Shell_NotifyIcon(NIM_DELETE,&g_nid); PostQuitMessage(0); return 0;

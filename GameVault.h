@@ -61,6 +61,11 @@ extern HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb
 extern HFONT g_hFont, g_hFontSm, g_hFontB;
 extern bool g_silent;
 extern int g_hovTile, g_closeHov, g_minHov;
+extern HMENU g_hTrayM;
+extern HWND g_hSearch;
+extern std::wstring g_search;
+extern std::vector<size_t> g_filtered;
+extern HBRUSH g_brSearchBg;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK GameAreaProc(HWND, UINT, WPARAM, LPARAM);
@@ -106,3 +111,6 @@ void DetectRockstar();
 void DetectBattleNet();
 void DetectItch();
 void DetectFromLaunchers();
+void RebuildFiltered();
+size_t TileCount();
+size_t TileGame(size_t i);
