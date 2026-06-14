@@ -725,8 +725,10 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
             (900-200)/2,rc.bottom-BB_H+12,200,36,hWnd,(HMENU)1,g_hInst,nullptr);
         g_hSearch=CreateWindowEx(0,L"EDIT",L"",
-            WS_CHILD|WS_VISIBLE|ES_LEFT|ES_AUTOHSCROLL,
+            WS_CHILD|WS_VISIBLE|ES_LEFT|ES_AUTOHSCROLL|WS_BORDER,
             12,rc.bottom-BB_H+14,180,28,hWnd,(HMENU)5,g_hInst,nullptr);
+        SetWindowTheme(g_hSearch,L"DarkMode_Explorer",nullptr);
+        SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFont,TRUE);
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
         RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
