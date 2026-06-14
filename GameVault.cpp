@@ -215,6 +215,286 @@ std::wstring ShortP(const std::wstring& p) {
     return (n>0&&n<MAX_PATH)?std::wstring(s,n):p;
 }
 
+static std::string ReadFileStr(const std::wstring& path) {
+    HANDLE h=CreateFile(path.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+    if(h==INVALID_HANDLE_VALUE) return "";
+    DWORD sz=GetFileSize(h,NULL);
+    if(sz>0&&sz!=INVALID_FILE_SIZE) {
+        std::string buf(sz,0); DWORD rd=0;
+        if(ReadFile(h,&buf[0],sz,&rd,NULL)&&rd==sz) {CloseHandle(h); return buf;}
+    }
+    CloseHandle(h); return "";
+}
+
+void AddGameIfNew(const std::wstring& name, const std::wstring& path) {
+    if(path.empty()||GetFileAttributes(path.c_str())==INVALID_FILE_ATTRIBUTES) return;
+    for(auto& g:g_games) { if(_wcsicmp(g.filePath.c_str(),path.c_str())==0) return; }
+    GameEntry ge; ge.filePath=path; ge.name=name.empty()?GetGN(path):name; ge.icon=GetIcon(path);
+    g_games.push_back(ge);
+}
+
+std::wstring FindExe(const std::wstring& folder) {
+    std::wstring pat=folder+L"\\*";
+    WIN32_FIND_DATA fd; HANDLE hf=FindFirstFile(pat.c_str(),&fd);
+    if(hf==INVALID_HANDLE_VALUE) return L"";
+    std::wstring best, fname;
+    size_t pos=folder.rfind(L'\\'); fname=(pos!=std::wstring::npos)?folder.substr(pos+1):folder;
+    do {
+        if(fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) continue;
+        std::wstring fn=fd.cFileName;
+        if(fn.size()<4||_wcsicmp(fn.c_str()+fn.size()-4,L".exe")!=0) continue;
+        std::wstring fnNoEx=fn.substr(0,fn.size()-4);
+        if(_wcsicmp(fnNoEx.c_str(),fname.c_str())==0) { FindClose(hf); return folder+L"\\"+fn; }
+        if(best.empty()) best=folder+L"\\"+fn;
+    } while(FindNextFile(hf,&fd));
+    FindClose(hf); return best;
+}
+
+std::wstring FindExeRec(const std::wstring& folder, int depth) {
+    if(depth<=0) return L"";
+    std::wstring exe=FindExe(folder);
+    if(!exe.empty()) return exe;
+    std::wstring pat=folder+L"\\*";
+    WIN32_FIND_DATA fd; HANDLE hf=FindFirstFile(pat.c_str(),&fd);
+    if(hf==INVALID_HANDLE_VALUE) return L"";
+    do {
+        if((fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)&&wcscmp(fd.cFileName,L".")!=0&&wcscmp(fd.cFileName,L"..")!=0) {
+            exe=FindExeRec(folder+L"\\"+fd.cFileName,depth-1);
+            if(!exe.empty()){FindClose(hf);return exe;}
+        }
+    } while(FindNextFile(hf,&fd));
+    FindClose(hf); return L"";
+}
+
+std::wstring JsonGetStr(const std::string& json, const std::string& key) {
+    std::string s="\""+key+"\""; size_t p=json.find(s);
+    if(p==std::string::npos) return L"";
+    p+=s.size(); while(p<json.size()&&(json[p]==' '||json[p]=='\t'||json[p]=='\n'||json[p]=='\r')) p++;
+    if(p<json.size()&&json[p]==':') p++;
+    while(p<json.size()&&(json[p]==' '||json[p]=='\t'||json[p]=='\n'||json[p]=='\r')) p++;
+    if(p>=json.size()||json[p]!='"') return L""; p++;
+    std::string v;
+    while(p<json.size()&&json[p]!='"'){if(json[p]=='\\'&&p+1<json.size()){v+=json[p+1];p+=2;}else{v+=json[p];p++;}}
+    return U2W(v);
+}
+
+std::wstring VdfGetStr(const std::string& vdf, const std::string& key) {
+    std::string s="\""+key+"\""; size_t p=vdf.find(s);
+    if(p==std::string::npos) return L"";
+    p+=s.size(); while(p<vdf.size()&&(vdf[p]==' '||vdf[p]=='\t')) p++;
+    if(p>=vdf.size()||vdf[p]!='"') return L""; p++;
+    std::string v;
+    while(p<vdf.size()&&vdf[p]!='"'){v+=vdf[p];p++;}
+    return U2W(v);
+}
+
+void DetectSteam() {
+    HKEY hk; wchar_t sp[MAX_PATH]={}; DWORD sz=sizeof(sp);
+    if(RegOpenKeyEx(HKEY_CURRENT_USER,L"Software\\Valve\\Steam",0,KEY_READ,&hk)!=ERROR_SUCCESS) return;
+    if(RegQueryValueEx(hk,L"SteamPath",0,NULL,(BYTE*)sp,&sz)!=ERROR_SUCCESS){RegCloseKey(hk);return;}
+    RegCloseKey(hk);
+    std::wstring steamPath=sp; for(auto&c:steamPath) if(c=='/') c='\\';
+    std::vector<std::wstring> libs; libs.push_back(steamPath);
+    std::string vdf=ReadFileStr(steamPath+L"\\steamapps\\libraryfolders.vdf");
+    if(!vdf.empty()) {
+        size_t p=0;
+        while((p=vdf.find("\"path\"",p))!=std::string::npos) {
+            p+=6; while(p<vdf.size()&&(vdf[p]==' '||vdf[p]=='\t')) p++;
+            if(p>=vdf.size()||vdf[p]!='"') continue; p++;
+            std::string val;
+            while(p<vdf.size()&&vdf[p]!='"'){val+=vdf[p];p++;}
+            if(!val.empty()){std::wstring l=U2W(val);for(auto&c:l)if(c=='/')c='\\';libs.push_back(l);}
+        }
+    }
+    for(auto& lib:libs) {
+        std::wstring ad=lib+L"\\steamapps";
+        WIN32_FIND_DATA fd; HANDLE hf=FindFirstFile((ad+L"\\appmanifest_*.acf").c_str(),&fd);
+        if(hf==INVALID_HANDLE_VALUE) continue;
+        do {
+            if(fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) continue;
+            std::string acf=ReadFileStr(ad+L"\\"+fd.cFileName);
+            if(acf.empty()) continue;
+            std::wstring nm=VdfGetStr(acf,"name"), id=VdfGetStr(acf,"installdir");
+            if(id.empty()) continue;
+            std::wstring gd=lib+L"\\steamapps\\common\\"+id;
+            std::wstring exe=FindExeRec(gd);
+            if(!exe.empty()) AddGameIfNew(nm,exe);
+        } while(FindNextFile(hf,&fd));
+        FindClose(hf);
+    }
+}
+
+void DetectGOG() {
+    HKEY hk;
+    LPCWSTR keys[]={L"SOFTWARE\\WOW6432Node\\GOG.com\\Games",L"SOFTWARE\\GOG.com\\Games"};
+    for(int i=0;i<2;i++) {
+        if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,keys[i],0,KEY_READ,&hk)!=ERROR_SUCCESS) continue;
+        DWORD idx=0; wchar_t kn[256]; DWORD ks=256;
+        while(RegEnumKeyEx(hk,idx++,kn,&ks,NULL,NULL,NULL,NULL)==ERROR_SUCCESS) {
+            HKEY hks;
+            if(RegOpenKeyEx(hk,kn,0,KEY_READ,&hks)==ERROR_SUCCESS) {
+                wchar_t nm[512]={},pth[MAX_PATH]={}; DWORD ns=sizeof(nm),ps=sizeof(pth);
+                RegQueryValueEx(hks,L"NAME",0,NULL,(BYTE*)nm,&ns);
+                RegQueryValueEx(hks,L"PATH",0,NULL,(BYTE*)pth,&ps);
+                RegCloseKey(hks);
+                if(wcslen(pth)>0){std::wstring exe=FindExeRec(pth);if(!exe.empty())AddGameIfNew(nm,exe);}
+            }
+            ks=256;
+        }
+        RegCloseKey(hk); return;
+    }
+}
+
+void DetectEpic() {
+    wchar_t ap[MAX_PATH]; SHGetFolderPath(NULL,CSIDL_COMMON_APPDATA,NULL,0,ap);
+    std::string j=ReadFileStr(std::wstring(ap)+L"\\Epic\\UnrealEngineLauncher\\LauncherInstalled.dat");
+    if(j.empty()) return;
+    size_t p=j.find("\"InstallationList\""); if(p==std::string::npos) return;
+    p=j.find('[',p); if(p==std::string::npos) return;
+    size_t e=j.find(']',p); if(e==std::string::npos) return;
+    std::string arr=j.substr(p,e-p+1); p=0;
+    while((p=arr.find('{',p))!=std::string::npos) {
+        size_t ce=arr.find('}',p); if(ce==std::string::npos) break;
+        std::string ob=arr.substr(p,ce-p+1);
+        std::wstring loc=JsonGetStr(ob,"InstallLocation"), an=JsonGetStr(ob,"AppName");
+        if(!loc.empty()){std::wstring exe=FindExeRec(loc);if(!exe.empty())AddGameIfNew(an,exe);}
+        p=ce+1;
+    }
+}
+
+void DetectUbisoft() {
+    HKEY hk;
+    LPCWSTR keys[]={L"SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher\\Installs",L"SOFTWARE\\Ubisoft\\Launcher\\Installs"};
+    for(int i=0;i<2;i++) {
+        if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,keys[i],0,KEY_READ,&hk)!=ERROR_SUCCESS) continue;
+        DWORD idx=0; wchar_t kn[256]; DWORD ks=256;
+        while(RegEnumKeyEx(hk,idx++,kn,&ks,NULL,NULL,NULL,NULL)==ERROR_SUCCESS) {
+            HKEY hks;
+            if(RegOpenKeyEx(hk,kn,0,KEY_READ,&hks)==ERROR_SUCCESS) {
+                wchar_t id[MAX_PATH]={}; DWORD sz=sizeof(id);
+                RegQueryValueEx(hks,L"InstallDir",0,NULL,(BYTE*)id,&sz);
+                RegCloseKey(hks);
+                if(wcslen(id)>0){std::wstring exe=FindExeRec(id);if(!exe.empty())AddGameIfNew(kn,exe);}
+            }
+            ks=256;
+        }
+        RegCloseKey(hk); return;
+    }
+}
+
+void DetectEA() {
+    HKEY hk;
+    LPCWSTR keys[]={L"SOFTWARE\\WOW6432Node\\Origin Games",L"SOFTWARE\\EA Games"};
+    for(int i=0;i<2;i++) {
+        if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,keys[i],0,KEY_READ,&hk)!=ERROR_SUCCESS) continue;
+        DWORD idx=0; wchar_t kn[256]; DWORD ks=256;
+        while(RegEnumKeyEx(hk,idx++,kn,&ks,NULL,NULL,NULL,NULL)==ERROR_SUCCESS) {
+            HKEY hks;
+            if(RegOpenKeyEx(hk,kn,0,KEY_READ,&hks)==ERROR_SUCCESS) {
+                wchar_t gd[MAX_PATH]={},dn[512]={}; DWORD gs=sizeof(gd),ds=sizeof(dn);
+                RegQueryValueEx(hks,L"GameDir",0,NULL,(BYTE*)gd,&gs);
+                if(wcslen(gd)==0){gs=sizeof(gd);RegQueryValueEx(hks,L"InstallDir",0,NULL,(BYTE*)gd,&gs);}
+                RegQueryValueEx(hks,L"DisplayName",0,NULL,(BYTE*)dn,&ds);
+                RegCloseKey(hks);
+                if(wcslen(gd)>0){std::wstring exe=FindExeRec(gd);if(!exe.empty())AddGameIfNew(dn,exe);}
+            }
+            ks=256;
+        }
+        RegCloseKey(hk); return;
+    }
+}
+
+void DetectRiot() {
+    wchar_t ap[MAX_PATH]; SHGetFolderPath(NULL,CSIDL_COMMON_APPDATA,NULL,0,ap);
+    std::string j=ReadFileStr(std::wstring(ap)+L"\\Riot Games\\RiotClientInstalls.json");
+    if(j.empty()) return;
+    size_t p=0;
+    while((p=j.find("\"product_install_full_path\"",p))!=std::string::npos) {
+        p+=28; while(p<j.size()&&(j[p]==' '||j[p]=='\t'||j[p]=='\n'||j[p]=='\r')) p++;
+        if(p<j.size()&&j[p]==':') p++;
+        while(p<j.size()&&(j[p]==' '||j[p]=='\t'||j[p]=='\n'||j[p]=='\r')) p++;
+        if(p>=j.size()||j[p]!='"') continue; p++;
+        std::string val;
+        while(p<j.size()&&j[p]!='"'){val+=j[p];p++;}
+        if(!val.empty()){std::wstring loc=U2W(val);for(auto&c:loc)if(c=='/')c='\\';
+            std::wstring exe=FindExeRec(loc);if(!exe.empty())AddGameIfNew(L"",exe);}
+    }
+}
+
+void DetectRockstar() {
+    HKEY hk;
+    LPCWSTR keys[]={L"SOFTWARE\\WOW6432Node\\Rockstar Games",L"SOFTWARE\\Rockstar Games"};
+    for(int i=0;i<2;i++) {
+        if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,keys[i],0,KEY_READ,&hk)!=ERROR_SUCCESS) continue;
+        DWORD idx=0; wchar_t kn[256]; DWORD ks=256;
+        while(RegEnumKeyEx(hk,idx++,kn,&ks,NULL,NULL,NULL,NULL)==ERROR_SUCCESS) {
+            HKEY hks;
+            if(RegOpenKeyEx(hk,kn,0,KEY_READ,&hks)==ERROR_SUCCESS) {
+                wchar_t id[MAX_PATH]={}; DWORD sz=sizeof(id);
+                RegQueryValueEx(hks,L"InstallFolder",0,NULL,(BYTE*)id,&sz);
+                if(wcslen(id)==0){sz=sizeof(id);RegQueryValueEx(hks,L"InstallDir",0,NULL,(BYTE*)id,&sz);}
+                RegCloseKey(hks);
+                if(wcslen(id)>0){std::wstring exe=FindExeRec(id);if(!exe.empty())AddGameIfNew(kn,exe);}
+            }
+            ks=256;
+        }
+        RegCloseKey(hk); return;
+    }
+}
+
+void DetectBattleNet() {
+    std::vector<std::wstring> paths;
+    wchar_t pf[MAX_PATH];
+    if(SHGetFolderPath(NULL,CSIDL_PROGRAM_FILES,NULL,0,pf)==S_OK) paths.push_back(std::wstring(pf)+L"\\Battle.net");
+    if(ExpandEnvironmentStrings(L"%ProgramFiles(x86)%\\Battle.net",pf,MAX_PATH)>0) paths.push_back(pf);
+    HKEY hk; wchar_t rp[MAX_PATH]={}; DWORD sz=sizeof(rp);
+    if(RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SOFTWARE\\WOW6432Node\\Battle.net",0,KEY_READ,&hk)==ERROR_SUCCESS) {
+        if(RegQueryValueEx(hk,L"InstallPath",0,NULL,(BYTE*)rp,&sz)==ERROR_SUCCESS&&wcslen(rp)>0) paths.push_back(rp);
+        RegCloseKey(hk);
+    }
+    wchar_t pd[MAX_PATH]; SHGetFolderPath(NULL,CSIDL_COMMON_APPDATA,NULL,0,pd);
+    std::string db=ReadFileStr(std::wstring(pd)+L"\\Battle.net\\Agent\\product.db");
+    if(!db.empty()) {
+        size_t pp=0;
+        while((pp=db.find("C:\\",pp))!=std::string::npos) {
+            size_t ee=pp; while(ee<db.size()&&db[ee]!='\0'&&db[ee]!='\n'&&db[ee]!='\r'&&ee-pp<MAX_PATH) ee++;
+            std::string ps=db.substr(pp,ee-pp);
+            std::wstring wps=U2W(ps); for(auto&c:wps) if(c=='/') c='\\';
+            if((wps.find(L".exe")!=std::wstring::npos||wps.find(L".EXE")!=std::wstring::npos)&&GetFileAttributes(wps.c_str())!=INVALID_FILE_ATTRIBUTES)
+                AddGameIfNew(L"",wps);
+            pp=ee+1;
+        }
+    }
+    for(auto& p:paths){std::wstring exe=FindExeRec(p);if(!exe.empty())AddGameIfNew(L"",exe);}
+}
+
+void DetectItch() {
+    wchar_t ap[MAX_PATH]; SHGetFolderPath(NULL,CSIDL_APPDATA,NULL,0,ap);
+    std::string j=ReadFileStr(std::wstring(ap)+L"\\itch\\config.json");
+    if(!j.empty()) {
+        std::wstring il=JsonGetStr(j,"installLocation");
+        if(!il.empty()){for(auto&c:il)if(c=='/')c='\\';std::wstring exe=FindExeRec(il);if(!exe.empty())AddGameIfNew(L"",exe);}
+    }
+    std::wstring br=std::wstring(ap)+L"\\itch\\broth";
+    WIN32_FIND_DATA fd; HANDLE hf=FindFirstFile((br+L"\\*").c_str(),&fd);
+    if(hf!=INVALID_HANDLE_VALUE) {
+        do {
+            if((fd.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)&&wcscmp(fd.cFileName,L".")!=0&&wcscmp(fd.cFileName,L"..")!=0) {
+                std::wstring exe=FindExeRec(br+L"\\"+fd.cFileName);
+                if(!exe.empty()) AddGameIfNew(L"",exe);
+            }
+        } while(FindNextFile(hf,&fd));
+        FindClose(hf);
+    }
+}
+
+void DetectFromLaunchers() {
+    size_t before=g_games.size();
+    DetectSteam(); DetectGOG(); DetectEpic(); DetectUbisoft(); DetectEA();
+    DetectRiot(); DetectRockstar(); DetectBattleNet(); DetectItch();
+    if(g_games.size()>before){Save();RebuildTiles();}
+}
+
 void Center(HWND h) {
     RECT r; GetWindowRect(h,&r);
     int w=r.right-r.left, hgt=r.bottom-r.top;
@@ -434,7 +714,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         g_hBtnAdd=CreateWindow(L"BUTTON",L"+ Add Games",
             WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
             (900-200)/2,rc.bottom-BB_H+12,200,36,hWnd,(HMENU)1,g_hInst,nullptr);
-        TraySetup(); Load(); RebuildTiles(); ListenShow(); RegUninst();
+        TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
         TrackMouseEvent(&tme);
         return 0;
