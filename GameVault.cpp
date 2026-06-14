@@ -74,11 +74,31 @@ std::wstring GetGN(const std::wstring& p) {
     if(z>0) {
         std::vector<char> b(z);
         if(GetFileVersionInfo(p.c_str(),0,z,&b[0])) {
-            wchar_t* d=nullptr; UINT l=0;
-            if(VerQueryValue(&b[0],L"\\StringFileInfo\\040904B0\\FileDescription",(void**)&d,&l)&&d&&l>0)
-                return std::wstring(d,l-1);
-            if(VerQueryValue(&b[0],L"\\StringFileInfo\\040904B0\\ProductName",(void**)&d,&l)&&d&&l>0)
-                return std::wstring(d,l-1);
+            struct Lang { WORD lang,cp; };
+            Lang* langs=nullptr; UINT l=0;
+            if(VerQueryValue(&b[0],L"\\VarFileInfo\\Translation",(void**)&langs,&l)&&langs&&l>=4) {
+                l/=4;
+                for(UINT i=0;i<l;i++) {
+                    wchar_t sub[64];
+                    swprintf(sub,64,L"\\StringFileInfo\\%04X%04X\\FileDescription",langs[i].lang,langs[i].cp);
+                    wchar_t* d=nullptr; UINT dl=0;
+                    if(VerQueryValue(&b[0],sub,(void**)&d,&dl)&&d&&dl>0)
+                        return std::wstring(d,dl-1);
+                }
+                for(UINT i=0;i<l;i++) {
+                    wchar_t sub[64];
+                    swprintf(sub,64,L"\\StringFileInfo\\%04X%04X\\ProductName",langs[i].lang,langs[i].cp);
+                    wchar_t* d=nullptr; UINT dl=0;
+                    if(VerQueryValue(&b[0],sub,(void**)&d,&dl)&&d&&dl>0)
+                        return std::wstring(d,dl-1);
+                }
+            } else {
+                wchar_t* d=nullptr; UINT lv=0;
+                if(VerQueryValue(&b[0],L"\\StringFileInfo\\040904B0\\FileDescription",(void**)&d,&lv)&&d&&lv>0)
+                    return std::wstring(d,lv-1);
+                if(VerQueryValue(&b[0],L"\\StringFileInfo\\040904B0\\ProductName",(void**)&d,&lv)&&d&&lv>0)
+                    return std::wstring(d,lv-1);
+            }
         }
     }
     size_t i=p.rfind(L'\\'); std::wstring n=(i!=std::wstring::npos)?p.substr(i+1):p;
