@@ -715,11 +715,13 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
             (900-200)/2,rc.bottom-BB_H+12,200,36,hWnd,(HMENU)1,g_hInst,nullptr);
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
+        RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
         TrackMouseEvent(&tme);
         return 0;
     }
     case WM_SHOWSIGNAL: ShowWin(); return 0;
+    case WM_HOTKEY: if(wParam==1) ShowWin(); return 0;
     case WM_TRAYICON:
         if(lParam==WM_LBUTTONDBLCLK) ShowWin();
         else if(lParam==WM_RBUTTONUP) {
@@ -852,7 +854,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         return (LRESULT)GetStockObject(NULL_BRUSH);
     }
     case WM_GETMINMAXINFO:{MINMAXINFO*m=(MINMAXINFO*)lParam;m->ptMinTrackSize.x=400;m->ptMinTrackSize.y=300;return 0;}
-    case WM_DESTROY: KillAll(); Shell_NotifyIcon(NIM_DELETE,&g_nid); PostQuitMessage(0); return 0;
+    case WM_DESTROY: KillAll(); UnregisterHotKey(hWnd,1); Shell_NotifyIcon(NIM_DELETE,&g_nid); PostQuitMessage(0); return 0;
     case WM_CLOSE: ShowWindow(hWnd,SW_HIDE); return 0;
     }
     return DefWindowProc(hWnd,msg,wParam,lParam);
