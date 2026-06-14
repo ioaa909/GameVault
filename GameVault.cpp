@@ -8,7 +8,6 @@ HANDLE g_hMutex;
 std::vector<GameEntry> g_games;
 std::vector<RunningGame> g_running;
 int g_contentH = 0, g_scrollY = 0;
-HWND g_hSearchIcon;
 HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb;
 HFONT g_hFont, g_hFontSm, g_hFontB, g_hFontSearch;
 bool g_silent = false;
@@ -732,10 +731,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             12,rc.bottom-BB_H+14,180,28,hWnd,(HMENU)5,g_hInst,nullptr);
         SetWindowTheme(g_hSearch,L"DarkMode_Explorer",nullptr);
         SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFontSearch,TRUE);
-        g_hSearchIcon=CreateWindow(L"STATIC",nullptr,
-            WS_CHILD|WS_VISIBLE|SS_ICON|SS_NOTIFY,
-            180+12-20,rc.bottom-BB_H+14+4,16,16,hWnd,(HMENU)6,g_hInst,nullptr);
-        { HICON h=(HICON)LoadImage(0,MAKEINTRESOURCE(32514),IMAGE_ICON,16,16,LR_SHARED); if(h) SendMessage(g_hSearchIcon,STM_SETICON,(WPARAM)h,0); }
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
         RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
@@ -830,6 +825,14 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         FillRect(hdc,&bb,bbr);
         MoveToEx(hdc,0,bb.top,nullptr); LineTo(hdc,rc.right,bb.top);
         DeleteObject(bbr); DeleteObject(bp);
+        // magnifying glass icon inside search box
+        { int mx=12+180-26, my=rc.bottom-BB_H+14+7;
+          HPEN hp2=CreatePen(PS_SOLID,2,RGB(0x99,0x99,0x99));
+          SelectObject(hdc,hp2);
+          HBRUSH oldBr=(HBRUSH)SelectObject(hdc,GetStockObject(NULL_BRUSH));
+          Ellipse(hdc,mx,my,mx+12,my+12);
+          MoveToEx(hdc,mx+9,my+9,nullptr); LineTo(hdc,mx+16,my+16);
+          SelectObject(hdc,oldBr); DeleteObject(hp2); }
         EndPaint(hWnd,&ps); return 0;
     }
     case WM_LBUTTONDOWN: {
@@ -860,7 +863,6 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         int w=LOWORD(lParam),h=HIWORD(lParam);
         if(g_hwndGame) SetWindowPos(g_hwndGame,nullptr,0,TB_H,w,h-TB_H-BB_H,SWP_NOZORDER);
         if(g_hSearch) SetWindowPos(g_hSearch,nullptr,12,h-BB_H+14,180,28,SWP_NOZORDER);
-        if(g_hSearchIcon) SetWindowPos(g_hSearchIcon,nullptr,180+12-20,h-BB_H+14+6,16,16,SWP_NOZORDER);
         if(g_hBtnAdd) SetWindowPos(g_hBtnAdd,nullptr,(w-200)/2,h-BB_H+12,200,36,SWP_NOZORDER);
         return 0;
     }
@@ -903,8 +905,8 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     case WM_CTLCOLORSTATIC: {
         HDC hdc=(HDC)wParam;
         SetTextColor(hdc,RGB(0xE0,0xE0,0xE0));
-        SetBkColor(hdc,RGB(0x12,0x12,0x12));
-        return (LRESULT)GetStockObject(DC_BRUSH);
+        SetBkMode(hdc,TRANSPARENT);
+        return (LRESULT)GetStockObject(NULL_BRUSH);
     }
     case WM_CTLCOLOREDIT: {
         HDC hdc=(HDC)wParam;

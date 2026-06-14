@@ -50,7 +50,7 @@ struct RunningGame {
 };
 
 extern HINSTANCE g_hInst;
-extern HWND g_hWnd, g_hwndGame, g_hBtnAdd, g_hSearchIcon;
+extern HWND g_hWnd, g_hwndGame, g_hBtnAdd;
 extern HICON g_hAppIcon;
 extern NOTIFYICONDATA g_nid;
 extern HANDLE g_hMutex;
