@@ -728,7 +728,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             (900-200)/2,rc.bottom-BB_H+12,200,36,hWnd,(HMENU)1,g_hInst,nullptr);
         g_hSearch=CreateWindowEx(0,L"EDIT",L"",
             WS_CHILD|WS_VISIBLE|ES_LEFT|ES_AUTOHSCROLL|WS_BORDER,
-            12,rc.bottom-BB_H+14,180,28,hWnd,(HMENU)5,g_hInst,nullptr);
+            12,rc.bottom-BB_H+14,156,28,hWnd,(HMENU)5,g_hInst,nullptr);
         SetWindowTheme(g_hSearch,L"DarkMode_Explorer",nullptr);
         SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFontSearch,TRUE);
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
@@ -826,7 +826,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         MoveToEx(hdc,0,bb.top,nullptr); LineTo(hdc,rc.right,bb.top);
         DeleteObject(bbr); DeleteObject(bp);
         // magnifying glass icon inside search box
-        { int mx=12+180-26, my=rc.bottom-BB_H+14+7;
+        { int mx=12+156+6, my=rc.bottom-BB_H+14+7;
           HPEN hp2=CreatePen(PS_SOLID,2,RGB(0x99,0x99,0x99));
           SelectObject(hdc,hp2);
           HBRUSH oldBr=(HBRUSH)SelectObject(hdc,GetStockObject(NULL_BRUSH));
@@ -862,7 +862,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     case WM_SIZE: {
         int w=LOWORD(lParam),h=HIWORD(lParam);
         if(g_hwndGame) SetWindowPos(g_hwndGame,nullptr,0,TB_H,w,h-TB_H-BB_H,SWP_NOZORDER);
-        if(g_hSearch) SetWindowPos(g_hSearch,nullptr,12,h-BB_H+14,180,28,SWP_NOZORDER);
+        if(g_hSearch) SetWindowPos(g_hSearch,nullptr,12,h-BB_H+14,156,28,SWP_NOZORDER);
         if(g_hBtnAdd) SetWindowPos(g_hBtnAdd,nullptr,(w-200)/2,h-BB_H+12,200,36,SWP_NOZORDER);
         return 0;
     }
