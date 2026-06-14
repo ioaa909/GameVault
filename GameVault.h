@@ -20,6 +20,7 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
+#include <mutex>
 
 #pragma comment(linker,"\"/manifestdependency:type='win32' \
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
@@ -31,6 +32,7 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #define PUBLISHER L"ioaa909"
 #define WM_TRAYICON (WM_APP + 1)
 #define WM_SHOWSIGNAL (WM_APP + 2)
+#define WM_DETECT_DONE (WM_APP + 3)
 #define TILE_W 120
 #define TILE_H 105
 #define TILE_M 10
@@ -57,8 +59,10 @@ extern HANDLE g_hMutex;
 extern std::vector<GameEntry> g_games;
 extern std::vector<RunningGame> g_running;
 extern int g_contentH, g_scrollY;
-extern HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb;
+extern HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb, g_brSearchBg, g_brTileH;
+extern HPEN g_hpBd;
 extern HFONT g_hFont, g_hFontSm, g_hFontB, g_hFontSearch;
+extern std::mutex g_games_mtx;
 extern bool g_silent;
 extern int g_hovTile, g_closeHov, g_minHov;
 extern HMENU g_hTrayM;
@@ -94,7 +98,7 @@ std::string W2U(const std::wstring& w);
 std::wstring U2W(const std::string& u);
 std::string JEsc(const std::wstring& s);
 void Center(HWND h);
-void PaintTiles(HWND hwnd, HDC hdc, int w, int h);
+void PaintTiles(HWND hwnd, HDC hdc);
 int TileAt(int x, int y, int& cols, int& rows);
 void AddGameIfNew(const std::wstring& name, const std::wstring& path);
 std::wstring FindExe(const std::wstring& folder);

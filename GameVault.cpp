@@ -7,6 +7,7 @@ NOTIFYICONDATA g_nid = {};
 HANDLE g_hMutex;
 std::vector<GameEntry> g_games;
 std::vector<RunningGame> g_running;
+std::mutex g_games_mtx;
 int g_contentH = 0, g_scrollY = 0;
 HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb;
 HFONT g_hFont, g_hFontSm, g_hFontB, g_hFontSearch;
@@ -16,7 +17,8 @@ HMENU g_hTrayM;
 HWND g_hSearch;
 std::wstring g_search;
 std::vector<size_t> g_filtered;
-HBRUSH g_brSearchBg;
+HBRUSH g_brSearchBg, g_brTileH;
+HPEN g_hpBd;
 
 void InitTheme() {
     g_brBg = CreateSolidBrush(RGB(0x1A,0x1A,0x1A));
@@ -27,6 +29,8 @@ void InitTheme() {
     g_brRed = CreateSolidBrush(RGB(0xC0,0x39,0x2B));
     g_brTb = CreateSolidBrush(RGB(0x0D,0x0D,0x0D));
     g_brSearchBg = CreateSolidBrush(RGB(0x1E,0x1E,0x1E));
+    g_brTileH = CreateSolidBrush(RGB(0x3A,0x3A,0x3A));
+    g_hpBd = CreatePen(PS_SOLID,2,RGB(0x9B,0x59,0xB6));
     NONCLIENTMETRICS nm = {sizeof(nm)};
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS,sizeof(nm),&nm,0);
     g_hFont = CreateFontIndirect(&nm.lfMessageFont);
@@ -116,21 +120,45 @@ HICON GetIcon(const std::wstring& p) {
 void Save() {
     CreateDirectory(AppDataP().c_str(),nullptr);
     std::string j="[\n";
-    for(size_t i=0;i<g_games.size();i++) { if(i) j+=",\n"; j+="  \""+JEsc(g_games[i].filePath)+"\""; }
+    for(size_t i=0;i<g_games.size();i++) {
+        if(i) j+=",\n";
+        j+="  {\"p\":\""+JEsc(g_games[i].filePath)+"\",\"n\":\""+JEsc(g_games[i].name)+"\"}";
+    }
     j+="\n]\n"; std::ofstream f(SaveP().c_str()); if(f.is_open()){f<<j;f.close();}
 }
 void Load() {
     std::ifstream f(SaveP().c_str()); if(!f.is_open()) return;
     std::string c((std::istreambuf_iterator<char>(f)),std::istreambuf_iterator<char>()); f.close();
-    size_t p=0;
-    while((p=c.find('\"',p))!=std::string::npos) {
-        size_t e=c.find('\"',p+1); if(e==std::string::npos) break;
-        std::wstring wp=U2W(c.substr(p+1,e-p-1));
-        if(GetFileAttributes(wp.c_str())!=INVALID_FILE_ATTRIBUTES) {
-            GameEntry ge; ge.filePath=wp; ge.name=GetGN(wp); ge.icon=GetIcon(wp);
-            g_games.push_back(ge);
+    size_t p=c.find('['); if(p==std::string::npos) return;
+    p++; while(p<c.size()&&(c[p]==' '||c[p]=='\n'||c[p]=='\r'||c[p]=='\t')) p++;
+    if(p>=c.size()) return;
+    if(c[p]=='{') {
+        // New format: {"p":"path","n":"name"}
+        p=0;
+        while((p=c.find("\"p\":\"",p))!=std::string::npos) {
+            p+=5; size_t e=c.find('"',p); if(e==std::string::npos) break;
+            std::wstring wp=U2W(c.substr(p,e-p));
+            size_t np=c.find("\"n\":\"",e); if(np==std::string::npos) break;
+            np+=5; size_t ne=c.find('"',np); if(ne==std::string::npos) break;
+            std::wstring wn=U2W(c.substr(np,ne-np));
+            if(GetFileAttributes(wp.c_str())!=INVALID_FILE_ATTRIBUTES) {
+                GameEntry ge; ge.filePath=wp; ge.name=wn; ge.icon=GetIcon(wp);
+                g_games.push_back(ge);
+            }
+            p=ne+1;
         }
-        p=e+1;
+    } else if(c[p]=='"') {
+        // Old format: array of strings
+        p=0;
+        while((p=c.find('"',p))!=std::string::npos) {
+            size_t e=c.find('"',p+1); if(e==std::string::npos) break;
+            std::wstring wp=U2W(c.substr(p+1,e-p-1));
+            if(GetFileAttributes(wp.c_str())!=INVALID_FILE_ATTRIBUTES) {
+                GameEntry ge; ge.filePath=wp; ge.name=GetGN(wp); ge.icon=GetIcon(wp);
+                g_games.push_back(ge);
+            }
+            p=e+1;
+        }
     }
 }
 
@@ -244,6 +272,7 @@ static std::string ReadFileStr(const std::wstring& path) {
 
 void AddGameIfNew(const std::wstring& name, const std::wstring& path) {
     if(path.empty()||GetFileAttributes(path.c_str())==INVALID_FILE_ATTRIBUTES) return;
+    std::lock_guard<std::mutex> lock(g_games_mtx);
     for(auto& g:g_games) { if(_wcsicmp(g.filePath.c_str(),path.c_str())==0) return; }
     GameEntry ge; ge.filePath=path; ge.name=name.empty()?GetGN(path):name; ge.icon=GetIcon(path);
     g_games.push_back(ge);
@@ -626,19 +655,14 @@ int TileAt(int x, int y, int& cols, int& rows) {
     return -1;
 }
 
-void PaintTiles(HWND hwnd, HDC hdc, int w, int h) {
-    int cols=0, rows=0;
+void PaintTiles(HWND hwnd, HDC hdc) {
+    std::lock_guard<std::mutex> lock(g_games_mtx);
     RECT rc; GetClientRect(hwnd,&rc);
-    w=rc.right; h=rc.bottom;
-    cols=std::max(1,w/(TILE_W+TILE_M*2));
-    rows=(int)((TileCount()+cols-1)/cols);
+    int w=rc.right, h=rc.bottom, cols=std::max(1,w/(TILE_W+TILE_M*2));
+    int rows=(int)((TileCount()+cols-1)/cols);
     int total=20+rows*(TILE_H+TILE_M*2);
     if(total<rc.bottom) total=rc.bottom;
-    HBRUSH brB = CreateSolidBrush(RGB(0x1A,0x1A,0x1A));
-    RECT bg={0,0,w,total}; FillRect(hdc,&bg,brB); DeleteObject(brB);
-    HBRUSH brT=CreateSolidBrush(RGB(0x2A,0x2A,0x2A));
-    HBRUSH brH=CreateSolidBrush(RGB(0x3A,0x3A,0x3A));
-    HPEN hp=CreatePen(PS_SOLID,2,RGB(0x9B,0x59,0xB6));
+    RECT bg={0,0,w,total}; FillRect(hdc,&bg,g_brBg);
     SetBkMode(hdc,TRANSPARENT);
     size_t cnt=TileCount();
     for(size_t i=0;i<cnt;i++) {
@@ -646,8 +670,8 @@ void PaintTiles(HWND hwnd, HDC hdc, int w, int h) {
         int r=(int)i/cols, c=(int)i%cols;
         int x=20+c*(TILE_W+TILE_M*2), y=20+r*(TILE_H+TILE_M*2)-g_scrollY;
         if(y+TILE_H<0||y>h) continue;
-        SelectObject(hdc,(int)gi==g_hovTile?brH:brT);
-        SelectObject(hdc,hp);
+        SelectObject(hdc,(int)gi==g_hovTile?g_brTileH:g_brTileBg);
+        SelectObject(hdc,g_hpBd);
         RoundRect(hdc,x,y,x+TILE_W,y+TILE_H,8,8);
         if(g_games[gi].icon) {
             DrawIconEx(hdc,x+(TILE_W-64)/2,y+6,g_games[gi].icon,64,64,0,nullptr,DI_NORMAL);
@@ -657,7 +681,6 @@ void PaintTiles(HWND hwnd, HDC hdc, int w, int h) {
         RECT tr2={x+4,y+72,x+TILE_W-4,y+TILE_H-6};
         DrawText(hdc,g_games[gi].name.c_str(),-1,&tr2,DT_CENTER|DT_WORDBREAK|DT_END_ELLIPSIS|DT_NOPREFIX);
     }
-    DeleteObject(hp); DeleteObject(brT); DeleteObject(brH);
 }
 
 LRESULT CALLBACK GameAreaProc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) {
@@ -668,7 +691,7 @@ LRESULT CALLBACK GameAreaProc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         HDC mdc=CreateCompatibleDC(hdc);
         HBITMAP bm=CreateCompatibleBitmap(hdc,rc.right-rc.left,rc.bottom-rc.top);
         HBITMAP ob=(HBITMAP)SelectObject(mdc,bm);
-        PaintTiles(hwnd,mdc,rc.right-rc.left,rc.bottom-rc.top);
+        PaintTiles(hwnd,mdc);
         BitBlt(hdc,0,0,rc.right-rc.left,rc.bottom-rc.top,mdc,0,0,SRCCOPY);
         SelectObject(mdc,ob); DeleteObject(bm); DeleteDC(mdc);
         EndPaint(hwnd,&ps); return 0;
@@ -751,7 +774,13 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             12,rc.bottom-BB_H+14,156,28,hWnd,(HMENU)5,g_hInst,nullptr);
         SetWindowTheme(g_hSearch,L"DarkMode_Explorer",nullptr);
         SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFontSearch,TRUE);
-        TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
+        TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) {
+            std::thread([](){
+                DetectSteam(); DetectGOG(); DetectEpic(); DetectUbisoft(); DetectEA();
+                DetectRiot(); DetectRockstar(); DetectBattleNet(); DetectItch();
+                PostMessage(g_hWnd,WM_DETECT_DONE,0,0);
+            }).detach();
+        } ListenShow(); RegUninst();
         RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
         TrackMouseEvent(&tme);
@@ -759,6 +788,11 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     }
     case WM_SHOWSIGNAL: ShowWin(); return 0;
     case WM_HOTKEY: if(wParam==1) ShowWin(); return 0;
+    case WM_DETECT_DONE: {
+        std::lock_guard<std::mutex> lock(g_games_mtx);
+        if(!g_games.empty()){Save();RebuildFiltered();}
+        return 0;
+    }
     case WM_DROPFILES: {
         HDROP hDrop=(HDROP)wParam; wchar_t f[MAX_PATH];
         UINT n=DragQueryFile(hDrop,0xFFFFFFFF,nullptr,0); size_t before=g_games.size();
