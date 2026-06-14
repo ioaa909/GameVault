@@ -149,31 +149,20 @@ void AddGames() {
     if (FAILED(hr)) { pfd->Release(); return; }
     DWORD count = 0;
     results->GetCount(&count);
-    bool added = false;
+    size_t before=g_games.size();
     for (DWORD i = 0; i < count; i++) {
         IShellItem* item = nullptr;
         if (FAILED(results->GetItemAt(i, &item))) continue;
         wchar_t* path = nullptr;
         if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
-            bool dup = false;
-            for (auto& g : g_games) {
-                if (_wcsicmp(g.filePath.c_str(), path) == 0) { dup = true; break; }
-            }
-            if (!dup) {
-                GameEntry ge;
-                ge.filePath = path;
-                ge.name = GetGN(path);
-                ge.icon = GetIcon(path);
-                g_games.push_back(ge);
-                added = true;
-            }
+            AddGameIfNew(L"", path);
             CoTaskMemFree(path);
         }
         item->Release();
     }
     results->Release();
     pfd->Release();
-    if (added) { Save(); RebuildTiles(); }
+    if(g_games.size()>before){Save();RebuildTiles();}
 }
 
 void LaunchG(int i) {
@@ -724,7 +713,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     case WM_HOTKEY: if(wParam==1) ShowWin(); return 0;
     case WM_DROPFILES: {
         HDROP hDrop=(HDROP)wParam; wchar_t f[MAX_PATH];
-        UINT n=DragQueryFile(hDrop,0xFFFFFFFF,nullptr,0); bool added=false;
+        UINT n=DragQueryFile(hDrop,0xFFFFFFFF,nullptr,0); size_t before=g_games.size();
         for(UINT i=0;i<n;i++){DragQueryFile(hDrop,i,f,MAX_PATH);
             std::wstring target=f;
             size_t len=wcslen(f);
@@ -740,11 +729,9 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
                     } sl->Release();
                 }
             }
-            if(target.size()<=4||_wcsicmp(target.c_str()+target.size()-4,L".exe")!=0) continue;
-            bool dup=false; for(auto& g:g_games) if(_wcsicmp(g.filePath.c_str(),target.c_str())==0){dup=true;break;}
-            if(!dup){GameEntry e;e.filePath=target;e.name=GetGN(target);e.icon=GetIcon(target);g_games.push_back(e);added=true;}
+            if(target.size()>4&&_wcsicmp(target.c_str()+target.size()-4,L".exe")==0) AddGameIfNew(L"",target);
         } DragFinish(hDrop);
-        if(added){Save();RebuildTiles();}
+        if(g_games.size()>before){Save();RebuildTiles();}
         return 0;
     }
     case WM_TRAYICON:
