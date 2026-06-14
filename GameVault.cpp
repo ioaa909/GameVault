@@ -501,6 +501,7 @@ size_t TileGame(size_t i) { return g_search.empty()?i:g_filtered[i]; }
 void RebuildFiltered() {
     g_filtered.clear();
     if(!g_search.empty()) {
+        g_filtered.reserve(g_games.size());
         for(size_t i=0;i<g_games.size();i++) {
             if(StrStrI(g_games[i].name.c_str(),g_search.c_str())) g_filtered.push_back(i);
         }
@@ -857,6 +858,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
         int id=LOWORD(wParam), hi=HIWORD(wParam);
         if(hi==EN_CHANGE&&id==5) {
             wchar_t buf[256]; GetWindowText(g_hSearch,buf,256);
+            if(g_search==buf) return 0;
             g_search=buf; RebuildFiltered();
             return 0;
         }
