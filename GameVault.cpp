@@ -705,7 +705,7 @@ LRESULT CALLBACK GameAreaProc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) {
 LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     switch(msg) {
     case WM_CREATE: {
-        g_hWnd=hWnd; InitTheme();
+        g_hWnd=hWnd; InitTheme(); DragAcceptFiles(hWnd,TRUE);
         RECT rc; GetClientRect(hWnd,&rc);
         g_hwndGame=CreateWindowEx(0,L"GameVaultGameArea",nullptr,
             WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_CLIPCHILDREN,
@@ -722,6 +722,16 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
     }
     case WM_SHOWSIGNAL: ShowWin(); return 0;
     case WM_HOTKEY: if(wParam==1) ShowWin(); return 0;
+    case WM_DROPFILES: {
+        HDROP hDrop=(HDROP)wParam; wchar_t f[MAX_PATH];
+        UINT n=DragQueryFile(hDrop,0xFFFFFFFF,nullptr,0); bool added=false;
+        for(UINT i=0;i<n;i++){DragQueryFile(hDrop,i,f,MAX_PATH);
+            bool dup=false; for(auto& g:g_games) if(_wcsicmp(g.filePath.c_str(),f)==0){dup=true;break;}
+            if(!dup){GameEntry e;e.filePath=f;e.name=GetGN(f);e.icon=GetIcon(f);g_games.push_back(e);added=true;}
+        } DragFinish(hDrop);
+        if(added){Save();RebuildTiles();}
+        return 0;
+    }
     case WM_TRAYICON:
         if(lParam==WM_LBUTTONDBLCLK) ShowWin();
         else if(lParam==WM_RBUTTONUP) {
