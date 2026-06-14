@@ -58,7 +58,7 @@ extern std::vector<GameEntry> g_games;
 extern std::vector<RunningGame> g_running;
 extern int g_contentH, g_scrollY;
 extern HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb;
-extern HFONT g_hFont, g_hFontSm, g_hFontB;
+extern HFONT g_hFont, g_hFontSm, g_hFontB, g_hFontSearch;
 extern bool g_silent;
 extern int g_hovTile, g_closeHov, g_minHov;
 extern HMENU g_hTrayM;

@@ -9,7 +9,7 @@ std::vector<GameEntry> g_games;
 std::vector<RunningGame> g_running;
 int g_contentH = 0, g_scrollY = 0;
 HBRUSH g_brBg, g_brTileBg, g_brTileBd, g_brBtn, g_brBtnH, g_brRed, g_brTb;
-HFONT g_hFont, g_hFontSm, g_hFontB;
+HFONT g_hFont, g_hFontSm, g_hFontB, g_hFontSearch;
 bool g_silent = false;
 int g_hovTile = -1, g_closeHov = 0, g_minHov = 0;
 HMENU g_hTrayM;
@@ -33,6 +33,8 @@ void InitTheme() {
     g_hFontB = CreateFont(-13,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Segoe UI");
     g_hFontSm = CreateFont(-12,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Segoe UI");
+    g_hFontSearch = CreateFont(-15,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Segoe UI");
 }
 
@@ -728,7 +730,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam) {
             WS_CHILD|WS_VISIBLE|ES_LEFT|ES_AUTOHSCROLL|WS_BORDER,
             12,rc.bottom-BB_H+14,180,28,hWnd,(HMENU)5,g_hInst,nullptr);
         SetWindowTheme(g_hSearch,L"DarkMode_Explorer",nullptr);
-        SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFont,TRUE);
+        SendMessage(g_hSearch,WM_SETFONT,(WPARAM)g_hFontSearch,TRUE);
         TraySetup(); Load(); RebuildTiles(); if(g_games.empty()) DetectFromLaunchers(); ListenShow(); RegUninst();
         RegisterHotKey(hWnd,1,MOD_ALT,VK_SPACE);
         TRACKMOUSEEVENT tme={sizeof(tme),TME_LEAVE,hWnd,0};
